@@ -8,6 +8,7 @@ S26.pod6
 make_tests
 bin/perldoc2text
 bin/perldoc2xhtml
+bin/perldoc2xhtml_enhanced
 lib/Perl6/Perldoc.pm
 lib/Perl6/Perldoc/Parser.pm
 lib/Perl6/Perldoc/To/Text.pm

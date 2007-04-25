@@ -1,6 +1,6 @@
 package Perl6::Perldoc;
 
-use version; $VERSION = qv('0.0.4');
+use version; $VERSION = qv('0.0.5');
 use warnings;
 use strict;
 use re 'eval';
@@ -123,7 +123,7 @@ Perl6::Perldoc - Use Perl 6 documentation in a Perl 5 program
 
 =head1 VERSION
 
-This document describes Perl6::Perldoc version 0.0.4
+This document describes Perl6::Perldoc version 0.0.5
 
 
 =head1 SYNOPSIS

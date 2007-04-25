@@ -11,6 +11,28 @@ use Perl6::Perldoc::To::Xhtml;
 
 my $source_file = $ARGV[0] || \*STDIN;
 
+sub enhanced_text {
+    my ($parent, $text) = @_;
+
+    for ($text) {
+        s{&}{&amp;}gxms;
+        s{<}{&lt;}gxms;
+        s{>}{&gt;}gxms;
+
+        last if $parent->is_verbatim;
+
+        s{``}{&ldquo;}gxms;
+        s{''}{&rdquo;}gxms;
+        s{`}{&lsquo;}gxms;
+        s{(?<=\S)'}{&rsquo;}gxms;
+        s{'(?=\S)}{&lsquo;}gxms;
+        s{(?<=\S)"}{&rdquo;}gxms;
+        s{"(?=\S)}{&ldquo;}gxms;
+    }
+
+    return $text;
+}
+
 # Add in this CSS so that tables look nicer...
 my $CSS = <<'END_CSS';
     th, td  { padding-right: 2em; }
@@ -38,22 +60,24 @@ if ($toc) {
 
 print Perl6::Perldoc::Parser->parse( $source_file, {all_pod=>'auto'} )
                             ->report_errors()
-                            ->to_xhtml({ full_doc => { style=>$CSS } });
+                            ->to_xhtml({ text_to_entities => \&enhanced_text,
+                                         full_doc => { style=>$CSS },
+                                      });
 
 __END__
 
 =head1 NAME
 
-perldoc2xhtml - Convert Perldoc markup to XHTML
+perldoc2xhtml_enhanced - Convert Perldoc markup to XHTML
 
 =head1 VERSION
 
-This documentation refers to perldoc2xhtml version 0.0.1
+This documentation refers to perldoc2xhtml_enhanced version 0.0.1
 This version is still a prototype.
 
 =head1 USAGE
 
-    perldoc2xhtml [-toc] [filename]
+    perldoc2xhtml_enhanced [-toc] [filename]
 
 =head1 REQUIRED ARGUMENTS
 
@@ -67,11 +91,32 @@ If filename not given, input is read from STDIN.
 May also be given a C<-toc> flag to autgenerate a table-of-contents at
 the start of the document.
 
-
 =head1 DESCRIPTION
 
 This utility converts documentation in the Perl 6 "Perldoc" notation to
-XHTML. The XHTML is always written to STDOUT.
+XHTML. It is enhanced in that it recognizes constructs like:
+
+    ``Open the pod-bay door, Hal!''
+
+    I'm sorry Dave, I'm afraid I can't do that. 
+
+    It's called `Daisy'.
+
+    "Daisy, Daisy, give me your answer, do..."
+
+in non-verbatim text and "educates" the quote marks. That is, it
+converts the quote marks to:
+
+    &ldquo;Open the pod-bay door, Hal!&rdquo;
+
+    I&rsquo;m sorry Dave, I&rsquo;m afraid I can&rsquo;t do that. 
+
+    It&rsquo;s called &lsquo;Daisy&rsquo;.
+
+    &ldquo;Daisy, Daisy, give me your answer, do...&rdquo;
+
+
+The XHTML is always written to STDOUT.
 
 
 =head1 DIAGNOSTICS

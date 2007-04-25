@@ -58,3 +58,37 @@ Revision history for Perl6-Perldoc
         * s{<br>}{<br/>}g
 
     - Added 'full_doc' option to XHTML translator (thanks Nick)
+
+
+0.0.5  Wed Apr 25 18:24:46 2007
+
+    - Enhanced Perl6::Perldoc::Parser::parse() so that it now accepts either
+      a filename, a filehandle, or a reference to a string, as its data
+      source.
+
+    - Several doc tweaks (thanks John)
+
+    - Added is_verbatim() method to DOM
+
+    - Fixed propagation of config info into table cells (thanks John!)
+
+    - Improved robustness of table parsing with respect to single/double
+      horizontal lines (e.g. no longer treats isolated =>, ==, --, etc.
+      as possible vertical boundary components)
+
+    - Fixed bug in DTD generation under 'full_doc' option
+
+    - Add embedded style_sheet support
+
+    - [BACKWARDS INCOMPATIBLE CHANGE] Refactored 'full_doc' option with
+      'DTD', 'title', and 'style' suboptions
+      
+    - Added stylesheet to bin/perldoc2xhtml to improve rendering of tables
+      in Firefox, Safari, and Explorer
+
+    - Added -toc option to bin/perldoc2xhtml to autogenerate a table of
+      contents for the document
+
+    - Added 'text_to_entities' option: see bin/perldoc2xhtml_enhanced
+      for an example (thanks John)
+

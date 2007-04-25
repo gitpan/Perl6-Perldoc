@@ -11,25 +11,39 @@ sub to_xhtml {
 }
 
 package Perl6::Perldoc::Parser::ReturnVal;
+use Carp;
 
 my %DTD_TYPE = (
     strict       => '-//W3C//DTD XHTML 1.0 Strict//EN',
     transitional => '-//W3C//DTD XHTML 1.0 Transitional//EN',
+    1            => '-//W3C//DTD XHTML 1.0 Transitional//EN',
 );
 
 sub _full_doc {
     my ($tree, $opt_ref, $body) = @_;
 
     # Find document title (either explicitly specified or filename)...
-    my $title = $opt_ref->{title};
+    my $title = $opt_ref->{full_doc}{title};
     if (!defined $title) {
         $title = $tree->range->{file} || q{};
         $title =~ s{.*/}{}xms;
     }
 
+    # Extract any embedded CSS specifications
+    my $style = $opt_ref->{full_doc}{style};
+    if (defined $style) {
+        # Wrap CSS info in <style> tags, if not already so wrapped...
+        if ($style !~ m{\A \s* <style\b}xms) {
+            $style = qq{<style type="text/css">\n<!--\n$style\n-->\n</style>\n};
+        }
+    }
+    else {
+        $style = q{};
+    }
+
     # Determine DTD type (either explicitly specified or default)...
-    my $requested = $opt_ref->{full_doc};
-    my $type = !defined $requested          ? 'transitional'
+    my $requested = $opt_ref->{full_doc}{DTD};
+    my $type = !defined $requested          ? $DTD_TYPE{transitional}
              : exists $DTD_TYPE{$requested} ? $DTD_TYPE{$requested}
              :                                $requested
              ;
@@ -38,7 +52,10 @@ sub _full_doc {
     return <<END_STRICT_DOC;
 <!DOCTYPE html PUBLIC "$type">
 <html>
-<head><title>$title</title></head>
+<head>
+<title>$title</title>
+$style
+</head>
 <body>
 $body
 </body>
@@ -51,13 +68,17 @@ sub to_xhtml {
 
     $opt_ref ||= {};
 
+    croak "'text_to_entities' option must be subroutine reference"
+        if exists $opt_ref->{text_to_entities}
+        && ref($opt_ref->{text_to_entities}) ne 'CODE';
+
     my $xhtml_rep = $self->{tree}->to_xhtml($opt_ref);
 
     if ($opt_ref->{notes}) {
         $xhtml_rep .= "<h1>Notes</h1>\n$opt_ref->{notes}";
     }
 
-    if ($opt_ref->{full_doc}) {
+    if (exists $opt_ref->{full_doc}) {
         $xhtml_rep = _full_doc($self->{tree}, $opt_ref, $xhtml_rep);
     }
 
@@ -79,7 +100,9 @@ sub add_xhtml_nesting {
 }
 
 sub _list_to_xhtml {
-    my $list_ref = shift;
+    my $parent    = shift;
+    my $list_ref  = shift;
+    my ($opt_ref) = @_;
     my $xhtml = q{};
     for my $content ( @{$list_ref} ) {
         next if ! defined $content;
@@ -87,9 +110,14 @@ sub _list_to_xhtml {
             $xhtml .= $content->to_xhtml(@_);
         }
         else {
-            $content =~ s{&}{&amp;}gxms;
-            $content =~ s{<}{&lt;}gxms;
-            $content =~ s{>}{&gt;}gxms;
+            if (exists $opt_ref->{text_to_entities}) {
+                $content = $opt_ref->{text_to_entities}->($parent, $content);
+            }
+            else {
+                $content =~ s{&}{&amp;}gxms;
+                $content =~ s{<}{&lt;}gxms;
+                $content =~ s{>}{&gt;}gxms;
+            }
             $xhtml .= $content;
         }
     }
@@ -98,8 +126,8 @@ sub _list_to_xhtml {
 
 sub to_xhtml {
     my $self = shift;
-    my $content = _list_to_xhtml([$self->content],@_);
-    my $name = Perl6::Perldoc::Root::_list_to_xhtml([
+    my $content = $self->_list_to_xhtml([$self->content],@_);
+    my $name = $self->_list_to_xhtml([
                  Perl6::Perldoc::FormattingCode::L::_flatten([$self->content])
                ]);
     
@@ -156,7 +184,7 @@ sub _min {
 
 sub to_xhtml {
     my $self = shift;
-    my $xhtml = Perl6::Perldoc::Root::_list_to_xhtml([$self->content], @_);
+    my $xhtml = $self->_list_to_xhtml([$self->content], @_);
     my $left_space = _min(map { length } $xhtml =~ m{^ [^\S\n]* (?= \S) }gxms);
     $xhtml =~ s{^ [^\S\n]{$left_space} }{}gxms;
     $xhtml = '<pre>' . $xhtml . '</pre>';
@@ -170,7 +198,7 @@ package Perl6::Perldoc::Block::input;
 sub to_xhtml {
     my $self = shift;
     return '<blockquote><pre><kbd>'
-         . Perl6::Perldoc::Root::_list_to_xhtml([$self->content], @_)
+         . $self->_list_to_xhtml([$self->content], @_)
          . "</kbd></pre></blockquote>\n";
 }
 
@@ -181,7 +209,7 @@ package Perl6::Perldoc::Block::output;
 sub to_xhtml {
     my $self = shift;
     return '<blockquote><pre><samp>'
-         . Perl6::Perldoc::Root::_list_to_xhtml([$self->content], @_)
+         . $self->_list_to_xhtml([$self->content], @_)
          . "</samp></pre></blockquote>\n";
 }
 
@@ -205,7 +233,7 @@ sub to_xhtml {
             $caption = "@{$caption}";
         }
     }
-    $caption = Perl6::Perldoc::Root::_list_to_xhtml([$caption]);
+    $caption = $self->_list_to_xhtml([$caption]);
 
     my $xhtml = qq{<a name="$caption"><a name="} . ($self+0) . qq{"><table>\n};
 
@@ -366,7 +394,7 @@ sub to_xhtml {
     my @title = $self->title;
     return "" if ! @title;
     
-    my $title = Perl6::Perldoc::Root::_list_to_xhtml(\@title, @_);
+    my $title = $self->_list_to_xhtml(\@title, @_);
 
     return qq{<a href="$target">\n<li class="$typename">$title</li></a>\n};
 }
@@ -437,7 +465,7 @@ BEGIN {
     );
 
     # Reuse content-to-xhtml converter
-    *_list_to_xhtml = *Perl6::Perldoc::Root::_list_to_xhtml;
+    #    *_list_to_xhtml = *Perl6::Perldoc::Root::_list_to_xhtml;
 
     # All semantic blocks are self-titling, followed by contents...
     for my $blockname (@semantic_blocks) {
@@ -450,12 +478,12 @@ BEGIN {
                 my @title = $self->title();
                 return "" if !@title;
 
-                my $title = _list_to_xhtml(\@title, @_);
+                my $title = $self->_list_to_xhtml(\@title, @_);
 
                 return qq{<a name="$title"><a name="}
                      . ($self+0)
                      . qq{"><h1 class="$blockname">$title</h1></a></a>\n}
-                     . _list_to_xhtml([$self->content], @_);
+                     . $self->_list_to_xhtml([$self->content], @_);
             };
     }
 }
@@ -489,7 +517,7 @@ package Perl6::Perldoc::FormattingCode::D;
 sub to_xhtml {
     my $self = shift;
     my $tag = join q{}, $self->content;
-    $tag = Perl6::Perldoc::Root::_list_to_xhtml([$tag]);
+    $tag = $self->_list_to_xhtml([$tag]);
     return qq{<a name="$tag"><dfn>} . $self->SUPER::to_xhtml(@_) . '</dfn></a>';
 }
 
@@ -733,25 +761,76 @@ The options currently supported are:
 
 =over
 
-=item C<< full_doc => 1 >>
+=item C<< full_doc => \%suboptions >>
 
-If this option is true, the C<to_xhtml()> method generates a complete
-XHTML document (including a DTD, C<< <head> >>, C<< <title> >>, and C<<
-<body> >> tags), rather than just the body contents.
+If this option is specified, the C<to_xhtml()> method generates a
+complete XHTML document (including a DTD, C<< <head> >>, C<< <title> >>,
+and C<< <body> >> tags), rather than just the body contents.
 
-By default the DTD is C<"XHTML 1.0 Transitional//EN">, but you can make
-it C<"XHTML 1.0 Strict//EN"> instead with:
+=over
 
-    $perldoc->to_xhtml({ full_doc => 'strict' });
+=item B<DTD selection>
 
-Alternatively, you can specify the DTD explicitly:
+By default the DTD used is C<"XHTML 1.0 Transitional//EN">, but you can make
+it C<"XHTML 1.0 Strict//EN"> instead by specifying the C<'DTD'> suboption:
 
-    $perldoc->to_xhtml({ full_doc => '-//W3C//DTD XHTML 1.0 Frameset//EN' });
+    $perldoc->to_xhtml({ full_doc => {DTD=>'strict'} });
+
+Alternatively, you can specify the full DTD explicitly:
+
+    $perldoc->to_xhtml({
+        full_doc => { DTD => '-//W3C//DTD XHTML 1.0 Frameset//EN' }
+    });
+
+=item B<Title specification>
+
+By default, the name of the file from which the Perldoc
+object was generated is used as the title of the documents (i.e. in its C<<
+<title> >>..C<< </title> >> tags).
+
+However, you can specify another title using the C<'title'> suboption:
+
+    $perldoc->to_xhtml({ full_doc => {title => 'Synopsis 26'} });
+
+
+=item B<Embedded CSS>
+
+It's also possible to embed CSS into the generated XHTML document, using the
+C<'style'> suboption:
+
+    my $CSS = <<'END_CSS';
+        a:link             { color: #ff8080 }
+        a:visited          { color: #ff0000 }
+        a:active           { color: #a05050 }
+
+        p:first-line       { margin-left: 5% }
+
+        h1, h2, blockquote { background: #000080 } 
+    END_CSS
+
+    $perldoc->to_xhtml({ full_doc => {style => $CSS} });
+
+If the value of the C<'style'> option doesn't start with a C<< <style... >>,
+then the style tags (and the usual backwards-compatibility C<< <!-- --> >>
+comment) are added automatically. However, you can provide the tags
+explictly if you need to specify special properties:
+
+    my $CSS = <<'END_CSS';
+        <style type="text/css" media="holodeck">
+            a:link     { aroma: citrus }
+            a:visited  { aroma: floral }
+            a:active   { aroma: sweaty }
+        </style>
+    END_CSS
+
+    $perldoc->to_xhtml({ full_doc => {style => $CSS} });
+
+=back
 
 Note that generating a full XHTML document is not the default behaviour
-because defaulting to generating unencapsuated body contents makes it
-easy to generate XHTML markup from separate Perldoc documents and
-then concatentate them into a single body:
+of C<to_xhtml()> because defaulting to generating unencapsuated body
+contents makes it easy to generate XHTML markup from separate Perldoc
+documents and then concatentate them into a single body:
 
     my @body_parts = map { $_->to_xhtml() } @perldoc_reps;
 
@@ -768,21 +847,65 @@ then concatentate them into a single body:
     END_XHTML
 
 
-=item C<< title => $plaintext_title >>
+=item C<< text_to_entities => sub {...} >>
 
-If this option is present (and the C<'full_doc'> option is also
-specifed), the value of this option is used as the C<< <title> >> value
-in the resulting XHTML document.
+Normally the module automatically converts instances of
+C<&>, C<< < >> and C<< > >> to the entities C<&amp;>, C<&lt;>
+and C<&gt;>, but does not insert any other entities into the generated XHTML.
+This option allows you to control precisely how entities are introduced into
+the final XHTML source.
 
-If this option is not specified, the name of the file from which the Perldoc
-object was generated is used instead.
+If this option is present, its value must be a subroutine reference. The
+subroutine will be passed two arguments: 
+
+=over
+
+=item [0]
+
+a reference to the parent DOM object that the specific text is from
+
+=item [1]
+
+the raw text itself
+
+=back
+
+The subroutine is expected to return XHTML text, presumably with some
+entity substitutions. Note that no other entity processing is performed
+if the C<'text_to_entities'> option is specified, so the translation
+subroutine will almost certainly need to handle the standard
+entities as well:
+
+    text_to_entities => sub {
+        my ($parent, $content) = @_;
+
+        $content =~ s{&}{&amp;}g;
+        $content =~ s{<}{&lt;}g;
+        $content =~ s{>}{&gt;}g;
+
+        if (! $parent->is_verbatim) {
+            # Other entity processing here
+        }
+
+        return $content;
+    }
+
 
 =back
 
 
 =head1 DIAGNOSTICS
 
-Adds no new diagnostics to those of Perl6::Perldoc::Parser.
+In addition to the diagnostics of Perl6::Perldoc::Parser:
+
+=over 
+
+=item 'text_to_entities' option must be subroutine reference
+
+The 'text_to_entities' option expects a reference to a subroutine that
+processes text strings. You passed it something else.
+
+=back
 
 
 =head1 CONFIGURATION AND ENVIRONMENT

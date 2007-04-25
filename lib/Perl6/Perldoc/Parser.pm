@@ -579,6 +579,15 @@ sub parse {
         }
     }
 
+    # If a reference to a scalar is passed, convert it to a filehandle...
+    elsif (ref($filehandle) eq 'SCALAR') {
+        my $data_source = $filehandle;
+        undef $filehandle;
+        open $filehandle, '<', $data_source
+            or require Carp
+            and Carp::croak("parse() can't parse from string ($!)");
+    }
+
     # Remember where we found this data...
     my %range = ( file=>$filename, from => 0 );
 
@@ -590,7 +599,7 @@ sub parse {
     };
 
     # Initialize configuration stack to track lexical =config directives
-    my @config_stack = {};
+    my @config_stack = $opt_ref->{config_stack} || {};
 
     # Track P<toc:...> requests...
     my @toc_placements;
@@ -788,7 +797,11 @@ sub parse {
                         ;
 
                     $options = _extract_options($options);
+
                     my $config = $config_stack[-1]{$type};
+                    my @config_stack_entry
+                        = $type eq 'table' ? (config_stack=>$config_stack[-1])
+                        :                    ();
 
                     my $verbatim = $type eq 'code';
 
@@ -799,6 +812,7 @@ sub parse {
                         range      => { %range },
                         options    => $options,
                         config     => $config,
+                        @config_stack_entry,
                         terminator => $terminator,
                         is_verbatim   => $verbatim || $top->{is_verbatim},
                         disjoint      => $disjoint_item1,
@@ -843,6 +857,9 @@ sub parse {
 
                     $options = _extract_options($options);
                     my $config = $config_stack[-1]{$type};
+                    my @config_stack_entry
+                        = $type eq 'table' ? (config_stack=>$config_stack[-1])
+                        :                    ();
 
                     # Add to parsing stack (not yet in tree)...
                     push @stack, {
@@ -851,6 +868,7 @@ sub parse {
                         range      => { %range },
                         options    => $options,
                         config     => $config,
+                        @config_stack_entry,
                         terminator => qr{ ^ \s* $
                                         | $DIR_NC
                                         | (?= $top->{terminator} )
@@ -1047,6 +1065,9 @@ sub parse {
                     my $verbatim = $type eq 'code';
 
                     my $config = $config_stack[-1]{$type};
+                    my @config_stack_entry
+                        = $type eq 'table' ? (config_stack=>$config_stack[-1])
+                        :                    ();
 
                     # Copy allowed fcodes...
                     my $allow_ref = _update_allow($top, $config, {});
@@ -1056,6 +1077,7 @@ sub parse {
                         typename   => $type,
                         style      => 'abbreviated',
                         config     => $config,
+                        @config_stack_entry,
                         range      => { %range },
                         terminator => qr{ ^ \s* $
                                         | $DIR_NC
@@ -1498,6 +1520,7 @@ sub range            { my ($self) = @_; return $self->{range};              }
 sub config           { my ($self) = @_; return $self->{config};             }
 sub number           { my ($self) = @_; return $self->{number};             }
 sub title            { my ($self) = @_; return '[' . $self->typename . ']'; }
+sub is_verbatim      { my ($self) = @_; return $self->{is_verbatim};        }
 sub is_semantic      { my ($self) = @_; return $self->{is_semantic};        }
 sub is_numbered      { my ($self) = @_; return exists $self->{number};      }
 sub is_post_numbered { 0 }
@@ -2039,10 +2062,10 @@ sub rows {
 # Ctor needs to build table by parsing raw contents of block...
 sub new {
     my ($classname, $data, $opt_ref) = @_;
-
     $data->{rows} = _build_table(
                         $data->{content}[0],
                         $data->{allow},
+                        $data->{config_stack},
                     );
 
     return $classname->SUPER::new($data);
@@ -2078,8 +2101,12 @@ sub _column_template {
     my %rivers;
     my %is_visible;
     for my $line (@lines) {
-        # Hide single and double spaces...
+        # Hide single/double spaces and single/double horizontal lines...
         $line =~ s/[^\s|+][ ][^\s|+]/***/g;
+        $line =~ s{((?:\A|[^=_-]) [=_-]{1,2} (?:[^=_-]|\Z))}
+                  {'*' x length $1}egxms;
+
+
         $line .= q{ } x ($max_width - length $line);
 
         # Check each position for a column boundary character...
@@ -2121,7 +2148,8 @@ sub _column_template {
 
 # Build list of individual table rows for given separators...
 sub _build_table_rows {
-    my ($text, $has_head, $cells_ref, $seps_ref, $allow_ref) = @_;
+    my ($text, $has_head, $cells_ref, $seps_ref, $allow_ref, $config_stack_ref)
+        = @_;
 
     # Get extract template and subdivide cells:
     my $extractor = _column_template($text);
@@ -2171,9 +2199,11 @@ sub _build_table_rows {
 
             # Recursively parse content as Pod...
             $content
-                = Perl6::Perldoc::Parser->parse($fh,
-                    {all_pod=>1, allow=>$allow_ref}
-                  )->{tree}->{content};
+                = Perl6::Perldoc::Parser->parse($fh, {
+                        all_pod=>1,
+                        allow=>$allow_ref,
+                        config_stack=>$config_stack_ref,
+                  })->{tree}->{content};
 
             # Add cell to list for row...
             push @cell_objs, bless {
@@ -2203,7 +2233,7 @@ sub _build_table_rows {
 
 # Build entire table...
 sub _build_table {
-    my ($text, $allow_ref) = @_;
+    my ($text, $allow_ref, $config_stack_ref) = @_;
 
     # Remove surrounding blank lines...
     $text =~ s{\A ($HWS* \n)+ | (^ $HWS* \n?)+ \z}{}gxms;
@@ -2224,7 +2254,9 @@ sub _build_table {
     my @separators = ($top_sep, @rows[grep {$_%2!=0} 0..$#rows], $bottom_sep);
     my @cells      = @rows[grep {$_%2==0} 0..$#rows];
 
-    return _build_table_rows($text, $has_head, \@cells, \@separators, $allow_ref);
+    return _build_table_rows(
+        $text, $has_head, \@cells, \@separators, $allow_ref, $config_stack_ref
+    );
 }
 
 # Class to represent individual table row...
@@ -2306,9 +2338,29 @@ converts it to a hierarchical object-based representation.
 
 =head2 C<< $rep = Perl6::Perldoc::Parser->parse($file, \%options) >>
 
-The C<parse()> method expects a filename or input filehandle as its first
-argument, and (optionally) a reference to a hash of options as its second.
-The options that can be passed in this second argument are:
+The C<parse()> method expects either:
+
+=over 
+
+=item *
+
+a string containing the filename, or
+
+=item *
+
+a filehandle that's already open for input, or
+
+=item *
+
+a I<reference> to a string that contains actual Pod mark-up
+
+=back
+
+as its first argument. This argument is used as the source of the Pod to
+be parsed.
+
+You may also (optionally) pass a reference to a hash of options as its
+second argument. The options that can be passed in this second argument are:
 
 =over
 
@@ -2538,6 +2590,15 @@ corresponding block was defined. The entries of the hash are:
 Returns the hierarchical number of the block within its block type. Will be
 undefined if the block was not numbered, so typically only meaningful for
 headers and list items.
+
+=item C<is_semantic()>
+
+Returns true if the block is a standard semantic block.
+
+=item C<is_verbatim()>
+
+Returns true if the block is verbatim (that is: a C<=code>, C<CZ<><>>,
+or C<VZ<><>>)
 
 =item C<is_numbered()>
 
