@@ -1,12 +1,20 @@
 package Perl6::Perldoc::Parser;
 #use Smart::Comments;
+use re 'eval';
 
 use warnings;
 use strict;
 
-use version; our $VERSION = qv('0.0.1');
+use version; our $VERSION = qv('0.0.6');
 
 # Regexes the parser needs...
+my $LDAB          = qq{\x{AB}};
+my $RDAB          = qq{\x{BB}};
+my $LDAB_CJK      = qq{\x{300A}};
+my $RDAB_CJK      = qq{\x{300B}};
+my $LEFT_ANGLE    = qr{ < | $LDAB | $LDAB_CJK }x;
+my $RIGHT_ANGLE   = qr{ > | $RDAB | $RDAB_CJK }x;
+
 my $FAIL          = q{(?!)};
 
 my $BLANK_LINE    = q{^ \\s* $};
@@ -18,12 +26,18 @@ my $P6_QUAL_IDENT = qr{ $QUAL_IDENT (?: -\S+ )}xms;
 my $DIR_NC   # DIRective but Not a Comment
     = qr{ (?= ^ = (?! \s | (?:(?:begin|end|for) [^\S\n]+)? comment\b ))}xms;
 
+my $DIR_COMMENT_BLOCK  # DIRective that is a COMMENT BLOCK
+    = qr{ ^ =begin \s+ comment \b }xms;
+
+
 our $BALANCED_BRACKETS;
     $BALANCED_BRACKETS = qr{  <   (?: (??{$BALANCED_BRACKETS}) | . )*?  >
                            | \[   (?: (??{$BALANCED_BRACKETS}) | . )*? \]
                            | \{   (?: (??{$BALANCED_BRACKETS}) | . )*? \}
                            | \(   (?: (??{$BALANCED_BRACKETS}) | . )*? \)
-                           | \xAB (?: (??{$BALANCED_BRACKETS}) | . )*? \xBB
+                           | $LEFT_ANGLE
+                                  (?: (??{$BALANCED_BRACKETS}) | . )*?
+                             $RIGHT_ANGLE
                            }xms;
 
 my $OPTION         = qr{ :   $IDENT  $BALANCED_BRACKETS?  | : !  $IDENT    }xms;
@@ -207,7 +221,7 @@ sub _extract_options {
                        : $val =~ /^(\[ .* \])$/xms        ? eval($1)
                        : $val =~ /^(\{ .* \})$/xms        ? eval($1)
                        : $val =~ /^ \<\s*(.*?)\s*\> $/xms ? [split /\s+/, $1]
-                       : $val =~ /^ \xAB\s*(.*?)\s*\xBB $/xms
+                       : $val =~ /^ $LEFT_ANGLE\s*(.*?)\s*$RIGHT_ANGLE $/xms
                                                           ? [_shell_split($1)]
                        :                              die "Internal error"
                        ;
@@ -329,8 +343,6 @@ sub _create_objects {
     # All upper or all lower case -> reserved block
     else {
         $tree->{is_semantic} = $typename =~ m{[[:upper:]]}xms;
-#        $is_reserved = !$tree->{is_semantic}
-#                       && $typename !~ m{\A (?:head|item) \d+ \z }xms;
         $is_reserved = $typename !~ m{\A (?:head|item) \d+ \z }xms;
         $classname .= "Block::$tree->{typename}";
 
@@ -696,6 +708,12 @@ sub parse {
                 else {
                     my $block = pop @stack;
 
+                    # Ignore attempts to terminate an END block...
+                    if ($block->{typename} eq 'END') {
+                        push @stack, $block;
+                        next TOKEN;
+                    }
+
                     # Execute any use statement...
                     if ($block->{typename} eq '(use)') {
                         my $source = $block->{source};
@@ -738,8 +756,13 @@ sub parse {
             }
 
             # Content of comments is appended raw...
-            if ($top->{typename} eq 'comment') {
-                $top->{content}[0] .= $line;
+            if ($top->{typename} eq 'comment' && $line !~ $DIR_COMMENT_BLOCK) {
+                if (!$top->{content} || ref $top->{content}[-1]) {
+                    push @{ $top->{content} }, $line;
+                }
+                else {
+                    $top->{content}[-1] .= $line;
+                }
                 next LINE;
             }
 
@@ -1204,13 +1227,15 @@ sub parse {
             if ( ( !$top->{is_verbatim}
                  || exists $top->{allow}{substr($line,pos $line,1)}
                  )
-                && $line =~ m{ \G ($FORMATTING_CODE) ((?><+)|\xAB) }ogcxms
+                && $line =~ m{ \G ($FORMATTING_CODE) ((?><+)|$LEFT_ANGLE) }ogcxms
             ) {
                     my ($type, $delim) = ($1, $2);
 
                     # Generate right delimiter (and nested matcher) from left...
                     my $rdelim = $delim;
-                    $rdelim =~ tr/<\xAB/>\xBB/;
+                    $rdelim =~ tr/</>/;
+                    $rdelim =~ s{$LDAB}{$RDAB}g;
+                    $rdelim =~ s{$LDAB_CJK}{$RDAB_CJK}g;
                     my $initiator = $delim . ($delim =~ /</ ? '(?!<)' : q{});
                     my $terminator = length($delim) == 1 ? $rdelim
                                    :                       "$rdelim(?!>)"
@@ -1726,6 +1751,10 @@ package Perl6::Perldoc::Block::comment;
 package Perl6::Perldoc::Block::END;   
     use base 'Perl6::Perldoc::Block';
 
+# Standard =DATA block...
+package Perl6::Perldoc::Block::DATA;   
+    use base 'Perl6::Perldoc::Block';
+
 # Standard SEMANTIC blocks...
 package Perl6::Perldoc::Semantic;
     use base 'Perl6::Perldoc::Block';
@@ -1763,6 +1792,7 @@ sub is_post_numbered {1}
 package Perl6::Perldoc::Block::CHAPTERS;    use base 'Perl6::Perldoc::Semantic';
 package Perl6::Perldoc::Block::COPYRIGHT;   use base 'Perl6::Perldoc::Semantic';
 package Perl6::Perldoc::Block::COPYRIGHTS;  use base 'Perl6::Perldoc::Semantic';
+package Perl6::Perldoc::Block::DEFAULT;     use base 'Perl6::Perldoc::Semantic';
 package Perl6::Perldoc::Block::DEPENDENCIES;
                                             use base 'Perl6::Perldoc::Semantic';
 package Perl6::Perldoc::Block::DEPENDENCY;  use base 'Perl6::Perldoc::Semantic';
@@ -1794,6 +1824,7 @@ package Perl6::Perldoc::Block::NAME;        use base 'Perl6::Perldoc::Semantic';
 package Perl6::Perldoc::Block::NAMES;       use base 'Perl6::Perldoc::Semantic';
 package Perl6::Perldoc::Block::OPTION;      use base 'Perl6::Perldoc::Semantic';
 package Perl6::Perldoc::Block::OPTIONS;     use base 'Perl6::Perldoc::Semantic';
+package Perl6::Perldoc::Block::PURPOSE;     use base 'Perl6::Perldoc::Semantic';
 package Perl6::Perldoc::Block::SECTION;     use base 'Perl6::Perldoc::Semantic';
 sub is_post_numbered {1}
 
@@ -2000,12 +2031,17 @@ package Perl6::Perldoc::FormattingCode::V;
 package Perl6::Perldoc::FormattingCode::X;
     use base 'Perl6::Perldoc::FormattingCode';
 
-# Index entries have to be extracted from the index target...
+# Index entries have to be extracted from the index target (or index content)...
 sub new {
     my ($classname, $data_ref) = @_;
 
     if (my $entries = delete $data_ref->{target}) {
         $data_ref->{entries} = [split /;/, $entries];
+    }
+    else { # No target --> content is target...
+        $data_ref->{entries} = @{ $data_ref->{content} || [] } <= 1
+            ? [ $data_ref->{content}[0] ]
+            : [ [ @{ $data_ref->{content} } ] ]
     }
 
     return $classname->SUPER::new($data_ref);
@@ -2074,8 +2110,9 @@ sub new {
 # Regexes to help with table parsing...
 my $HWS            = qr{ [ \t] }xms;
 
-my $COL_SEP        = qr{ $HWS* [|+]{1,2} | $HWS{2,}     }xms;
-my $ROW_SEP_LINE   = qr{ ^ [-=_ \t|+]*  \n }xms;
+my $COL_SEP      = qr{ $HWS* [|+]{1,2} | $HWS{2,}     }xms;
+my $ROW_SEP_LINE = qr{ ^ [-=_ \t|+]*  \n }xms;
+my $NWS_ROW_SEP  = qr{ [-=_+] }xms;
 
 # Utility maximum routine:
 
@@ -2244,7 +2281,7 @@ sub _build_table {
 
     # Decompose into separated rows...
     my ($first_row, $first_sep, @rest) = split m{($ROW_SEP_LINE)}xms, $text;
-    my $has_head = @rest != 0;
+    my $has_head = @rest != 0 && $first_sep =~ $NWS_ROW_SEP;
 
     my @rows = @rest == 0 ? (split m{(\n)}xms, $text)
              : @rest == 1 ? ($first_row, $first_sep, split m{(\n)}xms, $rest[0])
@@ -2313,7 +2350,7 @@ Perl6::Perldoc::Parser - Parse Perl 6's documentation mark-up language
 
 =head1 VERSION
 
-This document describes Perl6::Perldoc::Parser version 0.0.1
+This document describes Perl6::Perldoc::Parser version 0.0.6
 
 
 =head1 SYNOPSIS
@@ -2763,8 +2800,13 @@ Returns a string containing the target URI of the C<< LZ<><> >> or C<< PZ<><>
 
 =item C<entries()>
 
-Returns a list of strings containing the index entries for the
-corresponding C<< XZ<><> >> formatting code.
+Returns a list of strings or array references containing the index
+entries for the corresponding C<< XZ<><> >> formatting code.
+
+In the special case of a C<< XZ<><self targeting entry> >> which also
+contains nested formatting (e.g. C<< XZ<><dEZ<><eacute>jEZ<><agrave> vu> >>),
+the C<entries()> method returns a reference to an array containing alternating
+strings and FormattingCode objects.
 
 =back
 

@@ -1076,7 +1076,9 @@ intersections (C<+>). Rows can be specified in one of two ways: either
 one row per line, with no separators; or multiple lines per row with
 explicit horizontal separators (whitespace, intersections (C<+>), or
 horizontal lines: C<->, C<=>, C<_>) between I<every> row. Either style
-can also have an explicitly separated header row at the top.
+can also have an header row at the top (which must be separated from the
+first content row by at least one non-whitespace horizontal separator
+character).
 
 Each individual table cell is separately formatted, as if it were a
 nested C<=para>.
@@ -1257,6 +1259,8 @@ Standard semantic blocks include:
     =INDEX
     =FOREWORD
     =SUMMARY
+    =DEFAULT
+    =PURPOSE
 
 The plural forms of each of these keywords are also reserved, and are
 aliases for the singular forms.
@@ -1807,6 +1811,251 @@ rather than:
 The emergency signal is: dot dot dot dash dash dash dot dot dot.
 
 
+=head3 Ambient aliases
+
+The C<A<>> formatting code specifies an B<alias to an ambient antecedent>.
+This is like a L<placement link|#Placement links>, except
+that the text that is inserted to replace the C<A<>> formatting code is
+some portion of the L<ambient section(s)|#General syntactic structure>
+of the current document, rather than the entire contents of some
+external document.
+
+Hence, the C<A<>> code makes it possible to incorporate pieces of
+ambient text (typically source code) into Pod documentation.
+Specifically, the C<A<>> code is replaced by searching backwards through
+all preceding non-Pod parts of the document, to locate the nearest prior
+substring that matches the contents of the C<A<>> code.
+
+The contents of an C<A<>> code can specify a back-reference of this type
+in one of two ways:
+
+=item as a I<prefix keyword>, or
+
+=item as a I<delimited text range>.
+
+By default, C<A<>> aliases are "keyword oriented". That is, the contents
+of an C<A<>> block are treated as a keyword or prefix that introduces
+the desired text. That text is located by searching backwards from the
+location of the C<A<>> code, to find the nearest preceding instance of
+the specified prefix in any previous ambient block. The text that is
+then used to replace the C<A<>> is the first "symbol" following that
+located prefix. In this context, a "symbol" is defined as a sequence of
+non-whitespace characters terminated by a transition from an identifier
+character to a non-identifier character.
+
+For example, in the following:
+
+=begin code
+    class Pet {
+    
+        has $name;
+    
+    =DESCRIPTION
+    The class A<class> provides a A<has> attribute.
+=end code
+
+the C<A<class>> formatting code would be replaced by "Pet", since that
+is the sequence of non-whitespace characters that immediately follows
+"class" in the preceding ambient source code. Likewise, the C<A<has>> 
+formatting code would be replaced by "$name", because that is the
+longest sequence of non-whitespace characters that follows a "has" and
+terminates in an identifier-to-nonidentifier boundary.
+
+=begin para
+=config C<> :allow<R>
+In other words, any formatting code of the form C<A<R<prefix>>>
+is replaced by the substring of the nearest preceding
+ambient block that matches the pattern:
+=end para
+
+=for code :allow<R>
+    /  .*  R<prefix> \s*  <( \S*? \w )>  [\W | $] /
+
+This default is designed to work well for the commonest kind of
+back-reference in ambient text: a reference to a code construct that
+was defined using a prefix keyword and whose name ends in an identifier.
+
+The second and more general way of specifying an alias is to specify
+both a prefix and a postfix delimiter for the replacement text. If the
+contents of an C<A<>> formatting code include a range marker (C<..>),
+the sequence before the C<..> is treated as the left delimiter of the
+replacement text, and the sequence after the C<..> is the right
+delimiter. In this case, there are no other constraints on the
+replacement text. In particular, it may contain any number of non-
+identifier or whitespace characters. For example:
+
+    class Pet {
+
+        method eat(Food $meal) {...}
+
+    =for DESCRIPTION
+    The A<method>() method has the following argument list: A<(..)>
+
+This would be interpreted as:
+
+    The eat() method has the following argument list: Food $meal
+
+because the C<A<(..)>> specifies an alias to the closest preceding ambient
+text that is left-delimited by '(' and right-delimited by ')'.
+
+To specify an alias in which the sequence C<..> is itself
+a left- or right-delimiter (rather than the separator between the two),
+use a C<V<>> code:
+
+    constant @range = 0..99;
+
+    =para
+    The maximum value is A<V<..>..;>
+
+If the left delimiter is omitted, it defaults to "start of line".
+If the right delimiter is omitted, it defaults to "end of line".
+For example:
+
+    =head3 Standard conversions
+
+    constant %convert = (
+        'cat' => 'dog',
+    =item A«..=>» to A«=>..»
+
+        'fox' => 'hen',
+    =item A«..=>» to A«=>..»
+
+        'man' => 'ape',
+    =item A«..=>» to A«=>..»
+
+    );
+
+
+=head4 Explicit aliasing
+
+The replacement strings for C<A<>> formatting codes are normally
+specified implicitly, by the closest preceding ambient text that matches
+the contents of the C<A<>> code.
+
+However, it is possible to override this behaviour and create an
+I<explicitly defined> alias, using the C<=alias> directive:
+
+    class Agent {...}
+    =alias component Agent
+
+    class Transaction is Activity {
+
+    =DESCRIPTION 
+    The A<class> class represents a transaction activity between two
+    A<component> objects.
+
+In the preceding example, C<A<class>> is a normal "keyword" alias
+(which would be replaced by the closest preceding prefixed match:
+"Transaction"). However, C<A<component>> is a defined alias
+(which would be replaced by the explicitly specified text: "Agent").
+
+Each back-reference name defined by an <=alias> directive is lexically
+scoped within the block structure of the surrounding Pod. To create
+"global" aliases, define them at the start of the Pod document, at the
+outermost block level.
+
+Explicitly defined aliases always override normal prefix or delimited
+aliases, and thereby allow you to refer to ambient constructs that would
+otherwise be inaccessible to an implicit back-reference.
+
+For example, within the C<DESCRIPTION> block of the previous example,
+the Agent class couldn't be referred to as C<A<class>>, since the
+intervening Transaction class "hides" it from the look-behind matching
+of implicit back-reference mechanism. But the C<=alias> command allows
+the name of the earlier class to be associated with a distinct symbolic
+alias (i.e. "component"), which then allows it to be referred to
+unambiguously, regardless of other intervening code.
+
+Another way of thinking of this is that explicitly defined aliases
+change the normal C<A<>> substitution behaviour from being determined
+I<relatively> by the location of the C<A<>> code, to being determined
+I<absolutely> by the alias name itself.
+
+An C<=alias> directive expects two arguments:
+
+=item The name of the new alias
+
+=item The text with which that new alias is to be replaced
+
+The alias name may be any sequence of non-whitespace characters. The
+remainder of the line (ignoring the whitespace immediately after the
+name) is treated as the replacement text. For example:
+
+    =alias Smith  Jones
+    =alias G&T    green tea
+    =alias #*@%!  Gosh darn
+
+    =para
+    A<#*@%!> it, A<Smith>, you spilled my A<G&T>!
+
+is equivalent to:
+
+    =para
+    Gosh darn it, Jones, you spilled my green tea!
+
+Excessively long replacement strings can be specified across multiple
+lines, using the standard Perldoc "extender" notation:
+
+    =alias MIGSOTRSFTPOELATSNDUPSTOMIMD
+    =  Member in Good Standing of the Royal Society for the Prevention
+    =  of Excessively Long Acronyms that Serve No Discernably Useful
+    =  Purpose save to Obfuscate Modern Instantly Messaged Discourse
+ 
+To specify an alias name that includes significant whitespace, or a
+replacement text with surrounding whitespace, use a C<V<>>
+formatting code:
+
+    =alias slow            V< >...slow
+    =alias V<extra slow>   s-l-o-w
+    =alias V<ultra slow>   V<  >s  l  o  wV<  >
+
+    =para
+    The service was not merely A<slow>, or even A<extra slow>.
+    It was A<ultra slow>
+
+Although only the C<V<>> code is significant within the name of an alias,
+you can use I<any> formatting code(s) within the replacement text:
+
+    =alias V<ultra slow>   S<  s  l  o  w  >
+    =alias V<hyper slow>   B<...s...l...o...w...>
+
+In particular, you can use an C<A<>> code in the replacement text of an
+C<=alias>. This is useful to preserve the abstract relationship between
+ambient code and Pod documentation. For example, in the earlier Agent
+example, instead of:
+
+    class Agent {...}
+    =alias component Agent
+
+the alias could have been defined:
+
+    class Agent {...}
+    =alias component A<class>
+
+so that the class name did not have to be repeated as part of the alias.
+This approach has the important benefit that the alias would not have
+to be modified in any way if the name of the Agent class were
+subsequently changed:
+
+    class Operative {...}
+    =alias component A<class>
+
+Likewise, in the earlier range example, it would have been cleaner and
+more maintainable to write:
+
+    constant @range = 0..99;
+    =alias max  A<V<..>..;>
+
+    =para
+    The maximum value is A<max>
+
+Note that C<=alias> is a fundamental Perldoc directive, like C<=begin>
+or C<=for>; it is I<not> an instance of an
+L<abbreviated block|#Abbreviated blocks>. Hence there is no paragraph
+or delimited form of the C<=alias> directive (just as there is no
+paragraph or delimited form of C<=begin>).
+
+
 =head3 Entities
 
 To include named Unicode or XHTML entities, use the C<E<>> code.
@@ -1950,7 +2199,6 @@ If the formatting code is unrecognized, the contents of the code (i.e.
 everything after the first colon) would normally be rendered as
 ordinary text.
 
-
 =head2 Encoding
 
 By default, Perldoc assumes that documents are Unicode, encoded in one
@@ -1987,10 +2235,9 @@ An C<=encoding> directive affects any ambient code between the Perldoc
 as well. That is, Perl 6 uses C<=encoding> directives to determine the
 encoding of its source code as well as that of any documentation.
 
-Note that C<=encoding> is a fundamental Perldoc directive, like C<=begin> or
-C<=for>; it is I<not> an instance of an L<abbreviated block|#Abbreviated
-blocks>. Hence there is no paragraph or delimited form of the C<=encoding>
-directive (just as there is no paragraph or delimited form of C<=begin>).
+Note that, like C<=alias>, C<=encoding> is a fundamental Perldoc
+directive, not an abbreviated block form. Hence there is no paragraph or
+delimited form of the C<=encoding> directive.
 
 
 =head2 Block pre-configuration
@@ -2013,10 +2260,10 @@ The general syntax for configuration directives is:
     =config R<BLOCK_TYPE>  R<CONFIG OPTIONS>
     =                   R<OPTIONAL EXTRA CONFIG OPTIONS>
 
-Like C<=encoding>, a C<=config> is a directive, not a block. Hence,
-there is no paragraph or delimited form of the C<=config> directive.
-Each C<=config> specification is lexically scoped to the surrounding
-block in which it is specified.
+Like C<=alias> and C<=encoding>, a C<=config> is a directive, not a
+block. Hence, there is no paragraph or delimited form of the C<=config>
+directive. Each C<=config> specification is lexically scoped to the
+surrounding block in which it is specified.
 
 Note that, if a particular block later explicitly specifies a
 configuration option with the same key, that option overrides the
@@ -2216,6 +2463,7 @@ C<=encoding>, so there is no paragraph or delimited form of C<=use>.
 
     Directive           Specifies
     _________           ____________________________________________________
+    C<=alias>           Explicitly define an alias
     C<=begin>           Start of an explicitly terminated block
     C<=config>          Lexical modifications to a block or formatting code
     C<=encoding>        Encoding scheme for subsequent text
@@ -2254,6 +2502,7 @@ C<=encoding>, so there is no paragraph or delimited form of C<=use>.
 
     Formatting code      Specifies
     _______________      ___________________________________________________
+    C<A<...>>            Ambient back-reference
     C<B<...>>            Basis/focus of sentence (typically rendered bold)
     C<C<...>>            Code (typically rendered fixed-width)
     C<D<...|...;...>>    Definition (C<D<R<defined term>|R<synonym>;R<synonym>;...>>)

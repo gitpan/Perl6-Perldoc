@@ -1,20 +1,20 @@
 package Perl6::Perldoc;
 
-use version; $VERSION = qv('0.0.5');
+our $VERSION = '0.000_006';
 use warnings;
 use strict;
 use re 'eval';
 
 use Filter::Simple;
 
-my $IDENT            = qr{ (?> [^\W\d] \w* )            }xms;
-my $QUAL_IDENT       = qr{ $IDENT (?: :: $IDENT)*       }xms;
-my $TO_EOL           = qr{ (?> [^\n]* ) (?:\Z|\n)       }xms;
-my $HWS              = qr{ (?> [^\S\n]+ )               }xms;
-my $OHWS             = qr{ (?> [^\S\n]* )               }xms;
-my $BLANK_LINE       = qr{ ^ $OHWS $ | (?= ^ =)         }xms;
-my $DIRECTIVE        = qr{ config | encoding | use      }xms;
-my $OPT_EXTRA_CONFIG = qr{ (?> (?: ^ = $HWS $TO_EOL)* ) }xms;
+my $IDENT            = qr{ (?> [^\W\d] \w* )              }xms;
+my $QUAL_IDENT       = qr{ $IDENT (?: :: $IDENT)*         }xms;
+my $TO_EOL           = qr{ (?> [^\n]* ) (?:\Z|\n)         }xms;
+my $HWS              = qr{ (?> [^\S\n]+ )                 }xms;
+my $OHWS             = qr{ (?> [^\S\n]* )                 }xms;
+my $BLANK_LINE       = qr{ ^ $OHWS $ | (?= ^ = | \s* \z)  }xms;
+my $DIRECTIVE        = qr{ config | encoding | use        }xms;
+my $OPT_EXTRA_CONFIG = qr{ (?> (?: ^ = $HWS $TO_EOL)* )   }xms;
 
 
 # Recursive matcher for =DATA sections...
@@ -41,6 +41,7 @@ my $DATA_PAT = qr{
 
 # Recursive matcher for all other Perldoc sections...
 
+use vars '$type';
 my $POD_PAT; $POD_PAT = qr{
     ^ =
     (?:
@@ -57,10 +58,10 @@ my $POD_PAT; $POD_PAT = qr{
             .*?
         $BLANK_LINE
     |
-        ^ $DIRECTIVE $HWS $TO_EOL
+        $DIRECTIVE $HWS $TO_EOL
         $OPT_EXTRA_CONFIG
     |
-        ^ (?! =end) =$IDENT $HWS $TO_EOL
+        (?! end) $IDENT $TO_EOL
             .*?
         $BLANK_LINE
     )
@@ -96,7 +97,9 @@ FILTER {
     }gxmse;
 
     # Delete all other pod sections, preserving newlines...
-    s{ ($POD_PAT) }{ my $text = $1; $text =~ tr[\n\0-\377][\n]d; $text }gxmse;
+    { no warnings;
+      s{ ($POD_PAT) }{ my $text = $1; $text =~ tr[\n\0-\377][\n]d; $text; }gxmse;
+    }
 
     # Consolidate data and open a filehandle to it...
     local *DATA_glob;
@@ -123,7 +126,7 @@ Perl6::Perldoc - Use Perl 6 documentation in a Perl 5 program
 
 =head1 VERSION
 
-This document describes Perl6::Perldoc version 0.0.5
+This document describes Perl6::Perldoc version 0.000_006
 
 
 =head1 SYNOPSIS
@@ -234,6 +237,11 @@ declared in the file.
 =item *
 
 This module does not honour C<=encoding> directives.
+
+=item *
+
+If you plan to use the double-angle forms of delimiters (e.g. C«...», etc.)
+you may need to C<use utf8> in your source (on some systems).
 
 =back
 

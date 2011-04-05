@@ -5,6 +5,7 @@ META.yml # Will be created by "make dist"
 Makefile.PL
 README
 S26.pod6
+S26.html
 make_tests
 bin/perldoc2text
 bin/perldoc2xhtml
@@ -170,3 +171,6 @@ t_source/table_simple.pod6
 t_source/table_simple.rep
 t/diagnostics.t
 t/numbered_semantic.t
+t/comment_nested.t
+t/end_endless.t
+t/table_no_header.t

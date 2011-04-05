@@ -1,14 +1,17 @@
-# http://module-build.sourceforge.net/META-spec.html
-#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
-name:         Perl6-Perldoc
-version:      v0.0.5
-version_from: lib/Perl6/Perldoc.pm
-installdirs:  site
-requires:
+--- #YAML:1.0
+name:                Perl6-Perldoc
+version:             0.000_006
+abstract:            Use Perl 6 documentation in a Perl 5 program
+license:             ~
+author:              
+    - Damian Conway <DCONWAY@CPAN.org>
+generated_by:        ExtUtils::MakeMaker version 6.42
+distribution_type:   module
+requires:     
     Filter::Simple:                0
     Scalar::Util:                  0
     Test::More:                    0
     version:                       0
-
-distribution_type: module
-generated_by: ExtUtils::MakeMaker version 6.17
+meta-spec:
+    url:     http://module-build.sourceforge.net/META-spec-v1.3.html
+    version: 1.3

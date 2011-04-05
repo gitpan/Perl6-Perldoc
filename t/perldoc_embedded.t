@@ -1,4 +1,7 @@
-#! /usr/bin/perl
+#! /usr/bin/perl -w
+use strict;
+use 5.010;
+
 
 use Perl6::Perldoc;
 use strict;
@@ -50,7 +53,7 @@ check_all_three('2.1');
 check_all_three('2.2 is data too');
 check_all_three('2.3');
 check_all_three('3.1');
-check_all_three('');
+check_all_three('=Not pod');
 check_all_three('3.3');
 
 =for DATA 2.0
@@ -64,7 +67,7 @@ print "\n";
 
 =begin DATA 3.0
 3.1
-
+=Not pod
 3.3
 =end DATA
 

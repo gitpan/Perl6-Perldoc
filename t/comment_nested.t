@@ -1,15 +1,13 @@
-#! /opt/local/bin/perl5.10.0
-use 5.010;
-use warnings;
-
 # Testing this Pod specification...
 my $perldoc_data = <<'END_PERLDOC';
-C<  $foo<bar>   >
-C<< $foo<<bar>> >>
-C«$foo < $bar»
-C<<$foo < $bar>>
-The Perl 5 heredoc syntax was: C« <<END_MARKER »
-The Perl 5 heredoc syntax was: C<<< <<END_MARKER >>>
+=begin comment
+=begin nested
+=begin comment
+=for test
+This is a test
+=end comment
+=end nested
+=end comment
 
 END_PERLDOC
 
@@ -25,65 +23,24 @@ $VAR1 = bless( {
         'typename' => 'pod',
         'content' => [
           bless( {
-            'typename' => 'para',
+            'typename' => 'comment',
             'content' => [
-              bless( {
-                'typename' => 'C',
-                'content' => [
-                  '  $foo<bar>   '
-                ],
-                'style' => 'formatting'
-              }, 'Perl6::Perldoc::FormattingCode::C' ),
-              '
+              '=begin nested
 ',
               bless( {
-                'typename' => 'C',
+                'typename' => 'comment',
                 'content' => [
-                  ' $foo<<bar>> '
+                  '=for test
+This is a test
+'
                 ],
-                'style' => 'formatting'
-              }, 'Perl6::Perldoc::FormattingCode::C' ),
-              '
-',
-              bless( {
-                'typename' => 'C',
-                'content' => [
-                  '$foo < $bar'
-                ],
-                'style' => 'formatting'
-              }, 'Perl6::Perldoc::FormattingCode::C' ),
-              '
-',
-              bless( {
-                'typename' => 'C',
-                'content' => [
-                  '$foo < $bar'
-                ],
-                'style' => 'formatting'
-              }, 'Perl6::Perldoc::FormattingCode::C' ),
-              '
-The Perl 5 heredoc syntax was: ',
-              bless( {
-                'typename' => 'C',
-                'content' => [
-                  ' <<END_MARKER '
-                ],
-                'style' => 'formatting'
-              }, 'Perl6::Perldoc::FormattingCode::C' ),
-              '
-The Perl 5 heredoc syntax was: ',
-              bless( {
-                'typename' => 'C',
-                'content' => [
-                  ' <<END_MARKER '
-                ],
-                'style' => 'formatting'
-              }, 'Perl6::Perldoc::FormattingCode::C' ),
-              '
+                'style' => 'delimited'
+              }, 'Perl6::Perldoc::Block::comment' ),
+              '=end nested
 '
             ],
-            'style' => 'implicit'
-          }, 'Perl6::Perldoc::Block::para' )
+            'style' => 'delimited'
+          }, 'Perl6::Perldoc::Block::comment' )
         ],
         'style' => 'implicit'
       }, 'Perl6::Perldoc::Block::pod' )

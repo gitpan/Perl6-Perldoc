@@ -668,7 +668,7 @@ package Perl6::Perldoc::FormattingCode::S;
 sub to_xhtml {
     my $self = shift;
     my $text = $self->SUPER::to_xhtml(@_);
-    $text =~ s{ }{&nbsp;}gxms;
+    $text =~ s{[ ]}{&nbsp;}gxms;
     $text =~ s{\n}{<br/>}gxms;
     return $text;
 }
@@ -718,7 +718,7 @@ Perl6::Perldoc::To::Xhtml - Add a to_xhtml() method to Perl6::Perldoc::Parser
 
 =head1 VERSION
 
-This document describes Perl6::Perldoc::To::Xhtml version 0.0.1
+This document describes Perl6::Perldoc::To::Xhtml version 0.0.6
 
 
 =head1 SYNOPSIS

@@ -92,3 +92,24 @@ Revision history for Perl6-Perldoc
     - Added 'text_to_entities' option: see bin/perldoc2xhtml_enhanced
       for an example (thanks John)
 
+
+
+0.000_006  Tue Apr  5 17:28:25 2011
+
+    - Fixed handling of nested '=begin comment' blocks (thanks Larry)
+
+    - Fixed handling of table header rows: now only header if separator
+      below first row contains at least one horizontal separator character
+
+    - Fixed bug in translation of S<> to XHTML (thanks Adriano)
+
+    - Fixed handling of X<no targets only text> entries (thanks Joseph)
+
+    - Fixed handling of =END and =for END (thanks again Joseph)
+
+    - Fixed (non-)removal of certain types of pod during filtering
+      (thanks Carl)
+
+    - Added warning about C«...» etc. without utf8 (thanks Hinrik)
+
+    - Added bleadperl fix for localized var in regex (thanks Father C!)

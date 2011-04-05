@@ -605,7 +605,7 @@ Perl6::Perldoc::To::Text - Add a to_text() method to Perl6::Perldoc::Parser
 
 =head1 VERSION
 
-This document describes Perl6::Perldoc::To::Text version 0.0.1
+This document describes Perl6::Perldoc::To::Text version 0.0.6
 
 
 =head1 SYNOPSIS
