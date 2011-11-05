@@ -113,3 +113,9 @@ Revision history for Perl6-Perldoc
     - Added warning about C«...» etc. without utf8 (thanks Hinrik)
 
     - Added bleadperl fix for localized var in regex (thanks Father C!)
+
+
+0.000007  Sat Nov  5 17:34:16 2011
+
+    - No changes: reuploaded to overcome non-perlish CPAN numbering system
+      (thanks Father Chrysostomos)
