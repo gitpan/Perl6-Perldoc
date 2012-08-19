@@ -119,3 +119,11 @@ Revision history for Perl6-Perldoc
 
     - No changes: reuploaded to overcome non-perlish CPAN numbering system
       (thanks Father Chrysostomos)
+
+
+0.000008  Sun Aug 19 17:03:55 2012
+
+    - Patch to add missing handler for =defn (thanks Darren)
+
+    - Changed module's own =encoding to Latin-1
+      to support «...» in docs.

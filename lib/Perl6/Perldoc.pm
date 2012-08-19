@@ -1,6 +1,9 @@
+=encoding ISO8859-1
+=cut
+
 package Perl6::Perldoc;
 
-our $VERSION = '0.000007';
+our $VERSION = '0.000008';
 use warnings;
 use strict;
 use re 'eval';
@@ -126,7 +129,7 @@ Perl6::Perldoc - Use Perl 6 documentation in a Perl 5 program
 
 =head1 VERSION
 
-This document describes Perl6::Perldoc version 0.000007
+This document describes Perl6::Perldoc version 0.000008
 
 
 =head1 SYNOPSIS

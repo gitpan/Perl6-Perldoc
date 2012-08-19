@@ -1,4 +1,4 @@
-#!perl -T
+#!/usr/bin/env perl
 
 BEGIN {
     $SIG{__WARN__} = sub {

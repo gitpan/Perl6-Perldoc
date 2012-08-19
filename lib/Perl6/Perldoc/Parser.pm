@@ -1715,6 +1715,10 @@ package Perl6::Perldoc::Block::head4;
 package Perl6::Perldoc::Block::item;   
     use base 'Perl6::Perldoc::Block';
 
+# Standard =defn block...
+package Perl6::Perldoc::Block::defn;   
+    use base 'Perl6::Perldoc::Block';
+
 # Implicit =list block...
 package Perl6::Perldoc::Block::list;   
     use base 'Perl6::Perldoc::Block';
