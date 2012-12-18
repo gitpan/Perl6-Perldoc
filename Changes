@@ -127,3 +127,9 @@ Revision history for Perl6-Perldoc
 
     - Changed module's own =encoding to Latin-1
       to support «...» in docs.
+
+
+0.000009  Tue Dec 18 19:14:53 2012
+
+    - Numerous bugfixes and improvements
+      (thanks Lionel!)

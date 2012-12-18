@@ -33,7 +33,7 @@ sub _full_doc {
     my $style = $opt_ref->{full_doc}{style};
     if (defined $style) {
         # Wrap CSS info in <style> tags, if not already so wrapped...
-        if ($style !~ m{\A \s* <style\b}xms) {
+        if ($style !~ m{\A \s* <(link|style)\b}ixms) {
             $style = qq{<style type="text/css">\n<!--\n$style\n-->\n</style>\n};
         }
     }
@@ -75,7 +75,8 @@ sub to_xhtml {
     my $xhtml_rep = $self->{tree}->to_xhtml($opt_ref);
 
     if ($opt_ref->{notes}) {
-        $xhtml_rep .= "<h1>Notes</h1>\n$opt_ref->{notes}";
+        $xhtml_rep .= $opt_ref->{notes_prefix} || "<h1>Notes</h1>\n";
+        $xhtml_rep .= $opt_ref->{notes};
     }
 
     if (exists $opt_ref->{full_doc}) {
@@ -825,6 +826,15 @@ explictly if you need to specify special properties:
 
     $perldoc->to_xhtml({ full_doc => {style => $CSS} });
 
+Alternatively, the C<'style'> option can also contain a link to an external
+style-sheet:
+
+    my $CSS = <<'END_CSS';
+        <link href="mystyle.css" rel="stylesheet" type="text/css">
+    END_CSS
+
+    $perldoc->to_xhtml({ full_doc => {style => $CSS} });
+
 =back
 
 Note that generating a full XHTML document is not the default behaviour
@@ -846,6 +856,13 @@ documents and then concatentate them into a single body:
     </html>
     END_XHTML
 
+=item C<< notes_prefix => HTML >>
+
+Annotations are appended at the end of the document, prefixed by default
+with C<< <h1>Notes</h1>\n >>. This option allows to change this prefix to
+something else, for instance:
+
+    $perldoc->to_xhtml({ notes_prefix => "<hr>" });
 
 =item C<< text_to_entities => sub {...} >>
 

@@ -171,6 +171,14 @@ sub _err_bad_use_uri {
                        . qq{at $location};
 }
 
+# =use targets must be loadable
+sub _err_use_cant_load {
+    my ($source, $range_ref, $errors_ref) = @_;
+    my $location = _loc($range_ref);
+
+    push @{$errors_ref}, qq{Unable to load module in '=use $source' }
+                       . qq{at $location};
+}
 
 # Various places need to add content to the top of the stack...
 sub _add_content {
@@ -924,7 +932,7 @@ sub parse {
                     # Can use Perl 5 modules...
                     if ($source =~ m{\A (?:perl5:)? $QUAL_IDENT \Z}xms) {
                         push @stack, {
-                            typename   => 'use',
+                            typename   => '(use)',
                             style      => 'directive',
                             source     => $source,
                             range      => { %range },
@@ -2288,7 +2296,8 @@ sub _build_table {
     my $has_head = @rest != 0 && $first_sep =~ $NWS_ROW_SEP;
 
     my @rows = @rest == 0 ? (split m{(\n)}xms, $text)
-             : @rest == 1 ? ($first_row, $first_sep, split m{(\n)}xms, $rest[0])
+             : @rest == 1 && !$bottom_sep ?
+                            ($first_row, $first_sep, split m{(\n)}xms, $rest[0])
              :              ($first_row, $first_sep, @rest)
              ;
 
