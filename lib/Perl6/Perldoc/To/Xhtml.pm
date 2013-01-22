@@ -139,7 +139,7 @@ sub to_xhtml {
 
     if ($is_target) {
         $content = qq{<a name="$name"><a name="}
-                 . ($self+0)
+                 . $self->id()
                  . qq{">$content</a></a>};
     }
 
@@ -236,7 +236,7 @@ sub to_xhtml {
     }
     $caption = $self->_list_to_xhtml([$caption]);
 
-    my $xhtml = qq{<a name="$caption"><a name="} . ($self+0) . qq{"><table>\n};
+    my $xhtml = qq{<a name="$caption"><a name="} . $self->id() . qq{"><table>\n};
 
     if ($caption) {
         $xhtml .= qq{<caption>$caption</caption>\n};
@@ -482,7 +482,7 @@ BEGIN {
                 my $title = $self->_list_to_xhtml(\@title, @_);
 
                 return qq{<a name="$title"><a name="}
-                     . ($self+0)
+                     . $self->id()
                      . qq{"><h1 class="$blockname">$title</h1></a></a>\n}
                      . $self->_list_to_xhtml([$self->content], @_);
             };

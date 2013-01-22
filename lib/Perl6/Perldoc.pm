@@ -3,7 +3,7 @@
 
 package Perl6::Perldoc;
 
-our $VERSION = '0.000009';
+our $VERSION = '0.000010';
 use warnings;
 use strict;
 use re 'eval';
@@ -129,7 +129,7 @@ Perl6::Perldoc - Use Perl 6 documentation in a Perl 5 program
 
 =head1 VERSION
 
-This document describes Perl6::Perldoc version 0.000009
+This document describes Perl6::Perldoc version 0.000010
 
 
 =head1 SYNOPSIS

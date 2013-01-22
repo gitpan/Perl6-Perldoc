@@ -586,6 +586,9 @@ sub parse {
     my ($classname, $filehandle, $opt_ref) = @_;
     my $filename = undef;
 
+    # Reset the id generator if asked to
+    Perl6::Perldoc::Root::_reset_id() if $opt_ref->{reset_id};
+
     # If filename passed, open it...
     if (!ref $filehandle) {
         $filename = $filehandle;
@@ -1467,7 +1470,7 @@ sub _walk_toc {
                 :                                         $DEFAULT_LEVEL
                 ;
 
-            my $target = $node+0;
+            my $target = $node->id();
 
             # Create a TOC entry (a list item with a link inside it)...
             @this_node = bless {
@@ -1538,14 +1541,23 @@ package Perl6::Perldoc::Root;
 use strict;
 use warnings;
 
-# Root ctor just blesses the data structure...
+my $id = 1;
+
+# Reset the id in case someone wants reproducible results
+sub _reset_id {
+    $id = 1;
+}
+
+# Root constructor just assigns id and blesses the data structure...
 sub new {
     my ($classname, $data_ref) = @_;
 
+    $data_ref->{id} = $id++;
     return bless $data_ref, $classname;
 }
 
 # Standard read-only accessor methods shared by all DOM components...
+sub id               { my ($self) = @_; return $self->{id};                 }
 sub typename         { my ($self) = @_; return $self->{typename};           }
 sub style            { my ($self) = @_; return $self->{style};              }
 sub target           { my ($self) = @_; return $self->{target};             }
@@ -2443,6 +2455,15 @@ otherwise verbatim text:
     Perl6::Perldoc::Parser->parse($file, { allow => {E=>1, L=>1} });
 
 Defaults to no allowed codes.
+
+=item C<< reset_id => $status >>
+
+By default, the parser assigns unique identifiers (increasing integers) to
+each created object. These identifiers can later be used, for instance, to
+create unique links.
+
+If $status is true, the parser will reset the identifier generator to start
+again from 1.
 
 =back
 

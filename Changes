@@ -133,3 +133,9 @@ Revision history for Perl6-Perldoc
 
     - Numerous bugfixes and improvements
       (thanks Lionel!)
+
+
+0.000010  Tue Jan 22 18:17:19 2013
+
+    - Added id() method to normalize internal IDs.
+      (thanks Lionel)
