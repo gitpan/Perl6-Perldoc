@@ -584,7 +584,7 @@ sub _update_allow {
 # Parse input from a filehandle or filename, extracting the Pod...
 sub parse {
     my ($classname, $filehandle, $opt_ref) = @_;
-    my $filename = undef;
+    my $filename = $opt_ref->{filename};
 
     # Reset the id generator if asked to
     Perl6::Perldoc::Root::_reset_id() if $opt_ref->{reset_id};
@@ -2455,6 +2455,13 @@ otherwise verbatim text:
     Perl6::Perldoc::Parser->parse($file, { allow => {E=>1, L=>1} });
 
 Defaults to no allowed codes.
+
+=item C<< filename => $path >>
+
+If the given Pod contains placement links with relative files to be inlined
+and the source path is not passed as the first argument then you must use
+this option to indicate the path of the source file. It will be used to
+resolve all relative paths to be inlined.
 
 =item C<< reset_id => $status >>
 

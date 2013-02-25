@@ -639,9 +639,24 @@ sub to_xhtml {
 # Placement link formatter...
 package Perl6::Perldoc::FormattingCode::P;
 
+# Read a file
+sub _slurp {
+    my ($base, $file) = @_;
+    my ($handle, $contents);
+
+    if (defined $base and not $file =~ m{\A /}x) {
+        $base =~ s{ [^/]+ \Z}{}x;
+        $file = $base . $file;
+    }
+    if (open $handle, '<', $file) {
+        local $/;
+        $contents = <$handle>;
+    }
+    return $contents;
+}
+
 sub to_xhtml {
     my $self = shift;
-
     my $link = $self->SUPER::to_xhtml(@_);
 
     # Table-of-contents placement...
@@ -649,10 +664,22 @@ sub to_xhtml {
         return $link;
     }
 
-    # Everything else is just an outwards link (at the moment; should be fixed)
-    else {
-        return qq{See: <a href="$link">$link</a>};
+    # Handle inlined Pod...
+    if ($self->target =~ m{\A \s* file : (.+\.pod) \s* \Z}ixms) {
+        my $contents = _slurp($self->range->{file}, $1);
+        return Perl6::Perldoc::Parser
+            ->parse(\$contents, { all_pod => 1 })
+            ->report_errors()->to_xhtml() if defined $contents;
     }
+
+    # Handle inlined HTML...
+    if ($self->target =~ m{\A \s* file : (.+\.html?) \s* \Z}ixms) {
+        my $contents = _slurp($self->range->{file}, $1);
+        return $contents if defined $contents;
+    }
+
+    # If above attempts fail, format as an outwards link...
+    return qq{See: <a href="$link">$link</a>};
 }
 
 # Replacable item formatter...
