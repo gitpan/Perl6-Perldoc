@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Perl6-Perldoc
-version:            0.000011
+version:            0.000012
 abstract:           Use Perl 6 documentation in a Perl 5 program
 author:
     - Damian Conway <DCONWAY@CPAN.org>

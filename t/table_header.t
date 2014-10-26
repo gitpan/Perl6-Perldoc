@@ -76,12 +76,12 @@ Identity'
                         'typename' => 'pod',
                         'content' => [
                           bless( {
-                            'typename' => 'code',
+                            'typename' => 'para',
                             'content' => [
-                              ' Superpower'
+                              'Superpower'
                             ],
                             'style' => 'implicit'
-                          }, 'Perl6::Perldoc::Block::code' )
+                          }, 'Perl6::Perldoc::Block::para' )
                         ],
                         'style' => 'implicit'
                       }, 'Perl6::Perldoc::Block::pod' )

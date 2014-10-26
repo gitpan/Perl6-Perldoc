@@ -148,3 +148,9 @@ Revision history for Perl6-Perldoc
 
     - Added support for inlined POD and HTML files via P<> directive
       (many thanks, Lionel)
+
+
+0.000012  Sun Oct 26 12:09:39 2014
+
+    - Improved handling of + as border marker
+      (Thanks Lionel!)

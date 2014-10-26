@@ -2132,9 +2132,7 @@ sub new {
 }
 
 # Regexes to help with table parsing...
-my $HWS            = qr{ [ \t] }xms;
-
-my $COL_SEP      = qr{ $HWS* [|+]{1,2} | $HWS{2,}     }xms;
+my $HWS          = qr{ [ \t] }xms;
 my $ROW_SEP_LINE = qr{ ^ [-=_ \t|+]*  \n }xms;
 my $NWS_ROW_SEP  = qr{ [-=_+] }xms;
 
@@ -2158,43 +2156,25 @@ sub _column_template {
 
     my $max_width = _max(map {length} @lines);
 
-    # Detect rivers...
-    my %rivers;
-    my %is_visible;
+    # Compute the vector of column separator positions
+    my $zvec = pack("b*", 0 x $max_width);
+    my $rvec = pack("b*", 1 x $max_width);
     for my $line (@lines) {
-        # Hide single/double spaces and single/double horizontal lines...
-        $line =~ s/[^\s|+][ ][^\s|+]/***/g;
-        $line =~ s{((?:\A|[^=_-]) [=_-]{1,2} (?:[^=_-]|\Z))}
-                  {'*' x length $1}egxms;
-
-
+        # Skip row separators...
+        next if $line =~ /^[\s\-=_+|]*$/;
         $line .= q{ } x ($max_width - length $line);
-
-        # Check each position for a column boundary character...
-        my @char = split(//, $line);
-        for my $pos (0..$#char) {
-            my $char = $char[$pos];
-            if ($char =~ m{[-=_ ]}) {
-                $rivers{$pos}++;
-            }
-            elsif ($char =~ m{[|+]}) {
-                $rivers{$pos}++;
-                $is_visible{$pos} = 1;
+        my $lvec = $zvec;
+        # Mark column separators
+        while ($line =~ /(\s+[\s+|]\s+)/g) {
+            my $pos = pos($line);
+            for my $p ($pos - length($1) .. $pos - 1) {
+                vec($lvec, $p, 1) = 1;
             }
         }
+        # The result vector must match the line vector
+        $rvec &= $lvec;
     }
-
-    # Remove partial rivers...
-    delete @rivers{grep { ($rivers{$_}||0) < @lines } keys %rivers};
-
-    # Fill river positions with '1' (or '2' if a visible boundary)...
-    my $template = '0' x $max_width;
-    for my $pos (keys %rivers) {
-        substr($template,$pos,1,$is_visible{$pos} ? 2 : 1);
-    }
-
-    # Rivers with visible boundaries are only rivers in the visible bits...
-    $template =~ s{ (1*)(2+)(1*) }{ 0 x length($1) . 1 x length($2) . 0 x length($3) }egxms;
+    my $template = substr(join("", unpack("b*", $rvec)), 0, $max_width);
 
     # Add any missing external boundaries...
     my $prefix  = $template =~ /^0/ ? 'A0' : q{};
