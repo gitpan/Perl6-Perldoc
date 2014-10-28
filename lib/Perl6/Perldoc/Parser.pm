@@ -2165,8 +2165,8 @@ sub _column_template {
         $line .= q{ } x ($max_width - length $line);
         my $lvec = $zvec;
         # Mark column separators
-        while ($line =~ /(\s+[\s+|]\s+)/g) {
-            my $pos = pos($line);
+        while ($line =~ /(\s+[+|\s]\s+)/g) {
+            my $pos = pos($line)--;
             for my $p ($pos - length($1) .. $pos - 1) {
                 vec($lvec, $p, 1) = 1;
             }

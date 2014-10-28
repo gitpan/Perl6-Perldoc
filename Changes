@@ -154,3 +154,9 @@ Revision history for Perl6-Perldoc
 
     - Improved handling of + as border marker
       (Thanks Lionel!)
+
+
+0.000013  Wed Oct 29 07:30:04 2014
+
+    - Tweak to handling of border markers
+      (Thanks again, Lionel)
